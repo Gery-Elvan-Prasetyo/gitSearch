@@ -6,29 +6,127 @@
     <title>Document</title>
 </head>
 <style>
+    :root {
+        --bg: #f4f6f8;
+        --panel: #ffffff;
+        --panel-alt: #f3f5f7;
+        --text: #1f2937;
+        --muted: #6b7280;
+        --border: #dfe5eb;
+        --accent: #2563eb;
+        --accent-dark: #1d4ed8;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
     body {
+        margin: 0;
+        min-height: 100vh;
         font-family: Arial, sans-serif;
-        margin: 20px;
+        background: var(--bg);
+        color: var(--text);
     }
+
+    .container {
+        max-width: 720px;
+        margin: 48px auto;
+        padding: 32px 24px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+    }
+
+    h1 {
+        margin: 0 0 20px;
+        font-size: clamp(1.8rem, 3vw, 2.4rem);
+        line-height: 1.2;
+        color: var(--text);
+    }
+
+    .search-row {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
     input {
-        padding: 5px;
-        margin-right: 10px;
+        flex: 1;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 1rem;
+        background: var(--panel-alt);
+        color: var(--text);
     }
+
+    input:focus {
+        outline: 2px solid rgba(37, 99, 235, 0.15);
+        border-color: var(--accent);
+    }
+
     button {
-        padding: 5px 10px;
+        padding: 12px 18px;
+        border: none;
+        border-radius: 8px;
+        background: var(--accent);
+        color: white;
+        font-size: 0.96rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s ease;
     }
+
+    button:hover {
+        background: var(--accent-dark);
+    }
+
+    .status {
+        min-height: 22px;
+        margin: 0 0 18px;
+        color: var(--muted);
+        font-size: 0.94rem;
+    }
+
     ul {
-        list-style-type: none;
+        list-style: none;
+        margin: 0;
         padding: 0;
     }
+
     li {
-        margin: 5px 0;
+        margin: 0 0 10px;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--panel-alt);
     }
-    #username {
-        width: 200px;
-        text-align: center;
-        padding: 6px;
-        background-image: url('https://img.magnific.com/free-photo/abstract-dark-background-with-purple-lines-generative-ai_169016-30668.jpg?semt=ais_hybrid&w=740&q=80');
+
+    a {
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    a:hover {
+        text-decoration: underline;
+    }
+
+    @media (max-width: 560px) {
+        .container {
+            margin: 24px 16px;
+            padding: 24px 16px;
+        }
+
+        .search-row {
+            flex-direction: column;
+        }
+
+        button {
+            width: 100%;
+        }
     }
     body {
         background-color: #f4f4f4;
@@ -91,26 +189,60 @@
 </style>
 <body>
     <div class="container">
-    <title>Website/s</title>
-    <h1 id="header1">Github Repositories List</h1>
-   <input type="text" id="username" placeholder=" GitHub username" text-size="20" style="text-align: center;">
-    <button id="fetchButton" onclick="fetchRepositories()"><span class="button-text">Fetch Repositories</span></button>
-    <ul id="repoList"></ul>
+        <h1>GitHub repo finder</h1>
+        <div class="search-row">
+            <input id="username" type="text" placeholder="GitHub username" aria-label="GitHub username" />
+            <button id="fetchButton" type="button">Search</button>
+        </div>
+        <p id="status" class="status" aria-live="polite"></p>
+        <ul id="repoList"></ul>
     </div>
 
     <script>
+        const usernameInput = document.getElementById('username');
+        const repoList = document.getElementById('repoList');
+        const status = document.getElementById('status');
+
         async function fetchRepositories() {
-            const username = document.getElementById('username').value;
-            const response = await fetch(`https://api.github.com/users/${username}/repos`);
-            const repos = await response.json();
-            const repoList = document.getElementById('repoList');
+            const username = usernameInput.value.trim();
+
+            if (!username) {
+                status.textContent = 'Enter a GitHub username to search.';
+                repoList.innerHTML = '';
+                return;
+            }
+
+            status.textContent = 'Loading repositories...';
             repoList.innerHTML = '';
-            repos.forEach(repo => {
-                const listItem = document.createElement('li');
-                listItem.innerHTML = `<a href="${repo.html_url}" target="_blank"> ${repo.name}</a>`;
-                repoList.appendChild(listItem);
-            });
+
+            try {
+                const response = await fetch(`https://api.github.com/users/${username}/repos`);
+                const repos = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(repos.message || 'Could not load repositories.');
+                }
+
+                if (!Array.isArray(repos) || repos.length === 0) {
+                    status.textContent = 'No public repositories found for this user.';
+                    return;
+                }
+
+                status.textContent = `${repos.length} repository${repos.length === 1 ? '' : 'ies'} found.`;
+                repoList.innerHTML = repos
+                    .map(repo => `<li><a href="${repo.html_url}" target="_blank" rel="noreferrer">${repo.name}</a></li>`)
+                    .join('');
+            } catch (error) {
+                status.textContent = error.message || 'Something went wrong.';
+            }
         }
+
+        document.getElementById('fetchButton').addEventListener('click', fetchRepositories);
+        usernameInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                fetchRepositories();
+            }
+        });
     </script>
 </body>
 </html>
